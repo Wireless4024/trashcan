@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Poppins", sans-serif;
+    }
+
+    body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #5256ad;
+    }
+
+    .drag-area {
+        border: 2px dashed #fff;
+        height: 500px;
+        width: 700px;
+        border-radius: 5px;
+        display: flex;
+        text-align: center;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+    }
+
+    .drag-area.active {
+        border: 2px solid #fff;
+        background: rgba(102, 106, 194, 0.67);;
+    }
+
+    .drag-area div .icon {
+        font-size: 100px;
+        color: #fff;
+    }
+
+    .drag-area div header, .drag-area div p {
+        font-size: 30px;
+        font-weight: 500;
+        color: #fff;
+    }
+
+    .drag-area {
+        font-size: 25px;
+        font-weight: 500;
+        color: #fff;
+        margin: 10px 0 15px 0;
+    }
+
+    .drag-area div .button {
+        padding: 10px 25px;
+        font-size: 20px;
+        font-weight: 500;
+        border: none;
+        outline: none;
+        background: #fff;
+        color: #5256ad;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    .drag-area div img {
+        height: 100%;
+        width: 100%;
+        object-fit: cover;
+        border-radius: 5px;
+    }
+
+    input[type="number"] {
+        text-align: right;
+    }
+
+    hr {
+        border-bottom: 1px solid #ccc;
+        margin: 10px 0;
+        width: 100%;
+    }
+</style>
+<body>
+<div id="root" class="drag-area"
+     ondragover="document.getElementById('root').classList.add('active')"
+     ondragleave="document.getElementById('root').classList.remove('active')"
+     ondrop="document.getElementById('root').classList.remove('active')">
+    <form method="post" action="./upload" enctype="multipart/form-data" class="box has-advanced-upload">
+        <input id="file2" name="file" type="file" hidden required>
+        <label>
+            Duration (Minutes) <input type="number" name="duration" step="60" value="0" required>
+        </label>
+        <br> <!--it's work here-->
+        <label>
+            Quota <input type="number" name="quota">
+        </label>
+    </form>
+    <hr>
+    <div id="no-ctrl">
+        <div class="icon"><i class="fas fa-cloud-upload-alt"></i></div>
+        <header>CTRL-V something here</header>
+        <span>OR</span>
+        <p>Drop file here</p>
+        <span>OR</span>
+        <label for="file">
+            <div class="button">Browse File</div>
+        </label>
+        <input id="file" type="file" onchange="inputFile()" hidden>
+    </div>
+    <div id="ctrl-hold" style="display: none">
+        <header>CTRL-SHIFT-V to paste as plain text if available</header>
+    </div>
+</div>
+</body>
+<script>
+    let shift = false
+
+    const serverConfig = {
+        defaultDuration: 0,
+        maxExpire: 0
+    }
+
+    /***
+     * @param {File} file
+     */
+    function handle_file(file) {
+        if (!file) return
+        const df = new DataTransfer()
+        df.items.add(file)
+        document.getElementById("file2").files = df.files
+
+        submit()
+    }
+
+    function submit() {
+        const files = document.getElementById("file2").files
+        if (files.length == 0) return
+        if (document.forms[0].checkValidity())
+            document.forms[0].submit()
+    }
+
+    function inputFile() {
+        const f = document.getElementById("file")
+        if (f.files && f.files.length) handle_file(f.files[0])
+    }
+
+    {
+        // fine
+        // noinspection WithStatementJS
+        with (document.body) {
+            /**
+             * @param {KeyboardEvent} ev
+             * @returns {boolean}
+             */
+            const updateShift = function (ev) {
+                shift = ev.shiftKey
+                if (ev.ctrlKey) {
+                    document.getElementById("ctrl-hold").style.display = 'block'
+                    document.getElementById("no-ctrl").style.display = 'none'
+                } else {
+                    document.getElementById("ctrl-hold").style.display = 'none'
+                    document.getElementById("no-ctrl").style.display = 'block'
+                }
+            }
+            /**
+             * @param {Event} ev
+             * @returns {void}
+             */
+            const noDefault = (ev) => ev.preventDefault()
+
+            addEventListener('keydown', updateShift)
+            addEventListener('keyup', updateShift)
+            addEventListener('drop', function (ev) {
+                const df = ev.dataTransfer
+                if (df.files.length) handle_file(df.files[0])
+                else if (df.items.length) handle_file(df.items[0].getAsFile())
+                ev.preventDefault()
+            })
+            addEventListener('dragover', noDefault, true)
+            addEventListener('paste', function (ev) {
+                const cb = ev.clipboardData
+                const types = cb.types
+                if (types[0] === "Files")
+                    handle_file(cb.files[0])
+                else if (!shift && types.includes("text/html"))
+                    handle_file(new File([cb.getData("text/html")], "paste.html", {
+                        type: "text/html"
+                    }))
+                else if (cb.types.length)
+                    handle_file(new File([cb.getData(cb.types[0])], "UNKNOWN", {
+                        type: cb.types[0]
+                    }))
+            })
+        }
+    }
+
+    console.log(fetch("./info").then(it => it.json()));
+
+    async function fetchConfig() {
+        const info = await (fetch("./info").then(it => it.json()))
+        Object.assign(serverConfig, info)
+        document.querySelector('[name="duration"]').value = serverConfig.defaultDuration
+        document.querySelector('[name="duration"]').max = serverConfig.maxExpire
+    }
+
+    fetchConfig()
+</script>
+</html>
