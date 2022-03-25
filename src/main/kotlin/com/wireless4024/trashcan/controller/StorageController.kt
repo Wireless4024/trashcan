@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
+import org.yaml.snakeyaml.util.UriEncoder
 import java.net.InetAddress
 import java.time.LocalDateTime
 import kotlin.math.absoluteValue
@@ -26,7 +27,8 @@ import kotlin.math.absoluteValue
 
 data class UploadedFile(val file: MultipartFile, val duration: Long? = null, val quota: Int?) {
 	fun quota(): Int? {
-		return if ((quota ?: 0) > 0) quota else null
+		// first time it has to fetch in iframe
+		return if ((quota ?: 0) > 0) quota?.plus(1) else null
 	}
 }
 
@@ -97,7 +99,8 @@ class StorageController {
 		}
 
 		// default expire time is 12 hour
-		val expire = LocalDateTime.now().plusMinutes((file.duration?.absoluteValue ?: (defExpireTime)).coerceAtMost(maxExpireTime))
+		val expire = LocalDateTime.now()
+			.plusMinutes((file.duration?.absoluteValue ?: (defExpireTime)).coerceAtMost(maxExpireTime))
 		val rawRecord = fileRepository.findByHash(fhash).awaitFirstOrNull()
 		val record = if (rawRecord != null) {
 			if (rawRecord.expire == null)
@@ -112,7 +115,8 @@ class StorageController {
 			FileRecord(fhash, filename, mfile.contentType, expire, file.quota())
 		}
 		fileRepository.save(record).awaitSingleOrNull()
-		withContext(Dispatchers.IO) { resp.sendRedirect("./$/$chash") }
+
+		withContext(Dispatchers.IO) { resp.sendRedirect("./upload_finish.html?hash=${UriEncoder.encode(chash)}") }
 	}
 
 	suspend fun HttpServletResponse.e404() {

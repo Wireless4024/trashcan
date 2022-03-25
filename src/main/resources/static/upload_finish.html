@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload success!</title>
+</head>
+<body>
+<div>If this page refresh it will consume quota by 1</div>
+<label>URL: <input id="url" type="text" style="width:80%"></label><button onclick="copy()">copy</button>
+<iframe id="frame" src="" style="width:100%;min-height:80vh;border:0"></iframe>
+<script>
+    const search = new URLSearchParams(location.search)
+    const hash = decodeURIComponent(search.get('hash'))
+    /**
+     * @type {HTMLIFrameElement}
+     */
+    const iframe = document.getElementById('frame')
+    /**
+     * @type {HTMLInputElement}
+     */
+    const url = document.getElementById('url')
+    if (hash) {
+        iframe.src = `/$/${hash}`
+        url.value = location.origin + `/!/${hash}`
+
+        url.select()
+        url.setSelectionRange(0, 99999)
+    }
+
+    function copy(){
+        url.select()
+        url.setSelectionRange(0, 99999)
+
+        if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url.value)
+        }
+    }
+</script>
+</body>
+</html>
